@@ -18,19 +18,39 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mshindle/logext"
+	"github.com/mshindle/objstore/server"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"runtime"
+	"syscall"
 )
 
-var cfgFile string
+const (
+	cfgEngine = "engine"
+	cfgLogFile = "log"
+	cfgPort = "port"
+	cfgProcs   = "procs"
+)
+
+var (
+	cfgFile  string
+	settings *server.Settings
+)
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "objstore",
 	Short: "store arbitrary objects for a given key",
-	Long: `Objstore is a simplified HTTP storage interface
-which runs on top of various storage implementations like local file system,
+	Long: `Objstore is a simplified HTTP ops interface
+which runs on top of various ops implementations like local file system,
 S3, or SwiftStack.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		runtime.GOMAXPROCS(viper.GetInt(cfgProcs))
+		initLogging()
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
@@ -50,21 +70,50 @@ func init() {
 	// will be global for your application.
 
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.objstore.yaml)")
-	RootCmd.PersistentFlags().StringVarP(&cfgFile, "log", "l", "", "config file (default is $HOME/.objstore.yaml)")
+
+	RootCmd.PersistentFlags().StringP(cfgLogFile, "l", "", "send logging information to file instead of stdout")
+	viper.BindPFlag(cfgLogFile, RootCmd.PersistentFlags().Lookup(cfgLogFile))
+
+	RootCmd.PersistentFlags().Int(cfgProcs, runtime.NumCPU(), "max number of processors to use")
+	viper.BindPFlag(cfgProcs, RootCmd.PersistentFlags().Lookup(cfgProcs))
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(cfgFile)
-	}
-
 	viper.SetConfigName(".objstore") // name of config file (without extension)
 	viper.AddConfigPath("$HOME")     // adding home directory as first search path
 	viper.AutomaticEnv()             // read in environment variables that match
 
+	if cfgFile != "" { // enable ability to specify config file via flag
+		viper.SetConfigFile(cfgFile)
+	}
+
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+
+	settings = &server.Settings{}
+	err := viper.Unmarshal(settings)
+	if err != nil {
+		logrus.WithError(err).Fatal("error processing settings")
+	}
+}
+
+func initLogging() {
+	// set the logging level
+	logrus.SetLevel(logrus.InfoLevel)
+	logrus.SetOutput(os.Stdout)
+
+	// build our log writer
+	logFile := viper.GetString(cfgLogFile)
+	if logFile != "" {
+		cw := logext.NewCycleWriter(logFile)
+		if cw == nil {
+			logrus.WithField("logFile", logFile).Error("could not open for writing - using stdout instead")
+			return
+		}
+		cw.OnSignal(syscall.SIGHUP)
+		logrus.SetOutput(cw)
 	}
 }

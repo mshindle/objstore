@@ -17,36 +17,27 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
 // configCmd represents the config command
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
-		fmt.Println("config called")
+	Short: "dump out the configuration being used",
+	Long:  `Prints out the configuration settings used by objstore at runtime`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		d, err := yaml.Marshal(settings)
+		if err != nil {
+			logrus.WithError(err).Error("could not marshal settings")
+			return err
+		}
+		fmt.Printf("--- settings dump:\n%s\n\n", string(d))
+		return nil
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(configCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// configCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// configCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 }
