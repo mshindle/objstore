@@ -1,0 +1,17 @@
+---
+aws:
+  bucket: "test-bucket"
+  region: "us-east-1"
+engine: "local"
+local:
+  root: "/tmp"
+newrelic:
+  appname: "objstore"
+  license: "af975f7ae4b2127a7f5568b875e6e9ae44c7b111"
+  enabled: false
+port: 8080
+swift:
+  apiuser: "jpublic"
+  apikey: "changemenow"
+  authurl: "http://swift-ops.example.com/auth/v1.0"
+  container: "swift-test"
