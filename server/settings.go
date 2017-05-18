@@ -1,5 +1,7 @@
 package server
 
+import "github.com/pkg/errors"
+
 const (
 	// EngineLocal is constant for setting a local filesystem engine
 	EngineLocal = "local"
@@ -39,4 +41,16 @@ type Settings struct {
 		Container string
 		AuthURL   string `yaml:"authurl"`
 	}
+}
+
+// server settings
+var config *Settings
+
+// settings validation
+func validateConfigBuilder() error {
+	// check port is valid
+	if config.Port <= 0 {
+		return errors.New("invalid port specified")
+	}
+	return nil
 }
